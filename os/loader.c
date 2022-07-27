@@ -51,6 +51,7 @@ int run_all_app()
 		/*
 		* LAB1: you may need to initialize your new fields of proc here
 		*/
+		memset(p->syscall_times, 0, sizeof(unsigned int)* MAX_SYSCALL_NUM);
 	}
 	return 0;
 }
