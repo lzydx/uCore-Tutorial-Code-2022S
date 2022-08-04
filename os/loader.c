@@ -98,5 +98,6 @@ int load_init_app()
 	debugf("load init proc %s", INIT_PROC);
 	loader(id, p);
 	add_task(p);
+	memset(p->syscall_times, 0, sizeof(unsigned int)* MAX_SYSCALL_NUM);
 	return 0;
 }
