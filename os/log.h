@@ -6,6 +6,8 @@ extern int threadid();
 extern void dummy(int, ...);
 extern void shutdown();
 
+#define LOG_LEVEL_INFO
+
 #if defined(LOG_LEVEL_ERROR)
 
 #define USE_LOG_ERROR

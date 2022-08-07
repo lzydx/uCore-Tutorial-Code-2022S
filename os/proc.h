@@ -7,6 +7,8 @@
 
 #define NPROC (512)
 #define FD_BUFFER_SIZE (16)
+#define BigStride (65536)
+
 
 struct file;
 
@@ -49,8 +51,11 @@ struct proc {
 	/*
 	* LAB1: you may need to add some new fields here
 	*/
-	unsigned int syscall_times[MAX_SYSCALL_NUM];
+	unsigned int syscall_times[MAX_SYSCALL_NUM]; // for taskinfo record syscall times
 	int time;
+
+	long long priority; // proc priority
+	int stride; // for proc schedule
 };
 
 int cpuid();

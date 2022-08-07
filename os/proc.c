@@ -38,6 +38,8 @@ void proc_init()
 		*/
 		memset(p->syscall_times, 0, sizeof(unsigned int)* MAX_SYSCALL_NUM);
 		p->time = 0;
+		p->priority = 16;
+		p->stride = 0;
 	}
 	idle.kstack = (uint64)boot_stack_top;
 	idle.pid = IDLE_PID;
@@ -64,8 +66,8 @@ struct proc *fetch_task()
 
 void add_task(struct proc *p)
 {
-	push_queue(&task_queue, p - pool);
-	debugf("add task %d(pid=%d) to task queue\n", p - pool, p->pid);
+	// push_queue(&task_queue, p - pool);
+	// debugf("add task %d(pid=%d) to task queue\n", p - pool, p->pid);
 }
 
 // Look in the process table for an UNUSED proc.
@@ -105,7 +107,7 @@ found:
 //    via swtch back to the scheduler.
 void scheduler()
 {
-	struct proc *p;
+	struct proc *p = NULL;
 	for (;;) {
 		/*int has_proc = 0;
 		for (p = pool; p < &pool[NPROC]; p++) {
@@ -120,12 +122,27 @@ void scheduler()
 		if(has_proc == 0) {
 			panic("all app are over!\n");
 		}*/
-		p = fetch_task();
+		// p = fetch_task();
+		int minstride = __INT_MAX__;
+		for (struct proc *temp = pool; temp < &pool[NPROC]; temp++) {
+			if (temp->state == RUNNABLE) {
+				if(temp->stride < minstride){
+					minstride = temp->stride;
+					p = temp;
+				}
+			}
+		}
 		if (p == NULL) {
 			panic("all app are over!\n");
 		}
+		// printf("run pid : %d \n",p->pid);
 		tracef("swtich to proc %d", p - pool);
 		p->state = RUNNING;
+		p->stride += (BigStride / p->priority);
+		
+		// printf("switch fore pid : %d to cur pid: %d fore stride: %d, current stride : %d\n", curr_proc()->pid, p->pid, curr_proc()->stride, p->stride);
+		if(curr_proc()->state != ZOMBIE)
+		curr_proc()->state = RUNNABLE;
 		current_proc = p;
 		if(p->time == 0)
 		p->time = (get_cycle() % CPU_FREQ) * 1000 / CPU_FREQ;
@@ -213,7 +230,7 @@ int wait(int pid, int *code)
 	struct proc *np;
 	int havekids;
 	struct proc *p = curr_proc();
-
+	printf("wait curproc pid : %d, wait pid: %d \n", p->pid, pid);
 	for (;;) {
 		// Scan through table looking for exited children.
 		havekids = 0;
@@ -248,6 +265,7 @@ void exit(int code)
 	freeproc(p);
 	if (p->parent != NULL) {
 		// Parent should `wait`
+		printf("switch pid: %d to zombie\n", p->pid);
 		p->state = ZOMBIE;
 	}
 	// Set the `parent` of all children to NULL

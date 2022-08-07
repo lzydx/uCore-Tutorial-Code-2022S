@@ -70,8 +70,6 @@ int mmap(void* start, unsigned long long len, int port, int flag, int fd){
 	if(va0 != (uint64)start) return -1;
 	port = port << 1;
 	port = port | PTE_U;
-	// printf("max page: %d \n", curr_proc()->max_page);
-	// curr_proc()->max_page += 2;
 	while(len > 0){
 		n = PGSIZE;
 		if(n > len) n = len;
@@ -85,7 +83,10 @@ int mmap(void* start, unsigned long long len, int port, int flag, int fd){
 		va0 += n;
 		len -= n;
 	}
-	// printf("max page: %d \n", curr_proc()->max_page);
+	if(curr_proc()->max_page < PGROUNDUP(va0 + len - 1 ) / PAGE_SIZE){
+		curr_proc()->max_page = PGROUNDUP(va0 + len - 1 ) / PAGE_SIZE;
+	}
+
 	return 0;
 }
 int munmap(void* start, unsigned long long len){
@@ -100,11 +101,9 @@ int munmap(void* start, unsigned long long len){
 			return -1;
 		}
 		uvmunmap(curr_proc()->pagetable, va0, size, dofree);
-		curr_proc()->max_page--;
 		va0 += n;
 		len -= n;
 	}
-
 
 	return 0;
 }
@@ -163,11 +162,36 @@ uint64 sys_wait(int pid, uint64 va)
 uint64 sys_spawn(uint64 va)
 {
 	// TODO: your job is to complete the sys call
-	return -1;
+	char* name = (char*)useraddr(curr_proc()->pagetable, va);
+	struct proc *p = curr_proc();
+    struct proc *np = allocproc();
+	if(np == 0){
+		return -1;
+	}
+    // Cause fork to return 0 in the child.
+    np->trapframe->a0 = 0;
+    np->parent = p;
+    np->state = RUNNABLE;
+
+	int id = get_id_by_name(name);
+    if (id < 0)
+    return -1;
+
+	uvmunmap(np->pagetable, 0, np->max_page, 1);
+	np->max_page = 0;
+	loader(id, np);
+	
+	add_task(np);
+    return np->pid;
 }
 
+#define INT_MAX (0x7fffffff)
 uint64 sys_set_priority(long long prio){
     // TODO: your job is to complete the sys call
+	if(prio >= 2 && prio <= INT_MAX){
+		curr_proc()->priority = prio;
+		return prio;
+	}
     return -1;
 }
 
@@ -226,7 +250,10 @@ void syscall()
 		break;
 	case SYS_munmap:
 		ret = munmap((void*)args[0], args[1]);
-		break;	
+		break;
+	case SYS_setpriority:
+		ret = sys_set_priority(args[0]);
+		break;
 	/*
 	* LAB1: you may need to add SYS_taskinfo case here
 	*/
