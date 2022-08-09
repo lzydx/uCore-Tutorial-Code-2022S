@@ -179,17 +179,84 @@ uint64 sys_close(int fd)
 
 int sys_fstat(int fd,uint64 stat){
 	//TODO: your job is to complete the syscall
-	return -1;
+	Stat temp;
+	temp.dev = 0;
+	if (fd < 0 || fd > FD_BUFFER_SIZE)
+		return -1;
+	struct proc *p = curr_proc();
+	struct file *f = p->files[fd];
+	if (f == NULL) {
+		errorf("invalid fd %d", fd);
+		return -1;
+	}
+	temp.ino = f->ip->inum;
+	temp.nlink = f->ip->nlink; // 待修改
+	temp.mode = 0x100000;
+
+	copyout(p->pagetable, stat, (char*)&temp, sizeof(temp));
+	return 0;
 }
 
 int sys_linkat(int olddirfd, uint64 oldpath, int newdirfd, uint64 newpath, uint64 flags){
 	//TODO: your job is to complete the syscall
-	return -1;
+	// only consider oldpath  and newpath
+	struct inode *oldip;
+	
+	struct inode *dp;
+	dp = root_dir(); //Remember that the root_inode is open in this step,so it needs closing then.
+	ivalid(dp);
+
+	char opath[200];
+	copyinstr(curr_proc()->pagetable, opath, oldpath, 200);
+	char npath[200];
+	copyinstr(curr_proc()->pagetable, npath, newpath, 200);
+
+	if ((dirlookup(dp, npath, 0)) != 0) { // same path
+		printf("sys_linkat create a exist file\n");
+		iput(dp);
+		return -1;
+	}
+	if ((oldip = namei(opath)) == 0) { // old path inode not exist
+		printf("old path inode not exist!\n");
+		iput(dp);
+		return -1;
+	}
+
+	oldip->nlink++;
+	iupdate(oldip);
+	if (dirlink(dp, npath, oldip->inum) < 0)
+		printf("sys_linkat create: dirlink");
+
+	iput(dp);
+	return 0;
 }
 
 int sys_unlinkat(int dirfd, uint64 name, uint64 flags){
 	//TODO: your job is to complete the syscall
-	return -1;
+	// only consider name
+	struct inode *dp;
+	dp = root_dir(); //Remember that the root_inode is open in this step,so it needs closing then.
+	ivalid(dp);
+
+	struct inode *ip;
+	char path[200];
+	copyinstr(curr_proc()->pagetable, path, name, 200);
+
+	// printf("unlink fname is : %s\n", path);
+	if ((ip = namei(path)) == 0) { // old path inode not exist
+		printf("old path inode not exist!\n");
+		return -1;
+	}
+
+	dirunlink(dp, path);
+	ip->nlink--;
+	iupdate(ip);
+	ivalid(ip);
+	printf("ref: %d, valid:%d, nlink:%d\n", ip->ref, ip->nlink, ip->valid);
+	iput(ip);
+
+	iput(dp);
+	return 0;
 }
 
 extern char trap_page[];
@@ -247,6 +314,7 @@ void syscall()
 		break;
 	case SYS_unlinkat:
 	    ret = sys_unlinkat(args[0],args[1],args[2]);
+		break;
 	case SYS_spawn:
 		ret = sys_spawn(args[0]);
 		break;

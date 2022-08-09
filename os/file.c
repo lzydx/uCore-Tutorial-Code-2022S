@@ -86,6 +86,7 @@ static struct inode *create(char *path, short type)
 
 	ivalid(ip);
 	iupdate(ip);
+	printf("ip nlink is : %d\n", ip->nlink);
 	if (dirlink(dp, path, ip->inum) < 0)
 		panic("create: dirlink");
 

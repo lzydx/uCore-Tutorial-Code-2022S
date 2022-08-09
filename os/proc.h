@@ -47,6 +47,14 @@ struct proc {
 		[FD_BUFFER_SIZE]; //File descriptor table, using to record the files opened by the process
 };
 
+typedef struct {
+	uint64 dev; // 文件所在磁盘驱动器号，不考虑
+	uint64 ino; // inode 文件所在 inode 编号
+	uint32 mode; // 文件类型
+	uint32 nlink; // 硬链接数量，初始为1
+	uint64 pad[7]; // 无需考虑，为了兼容性设计
+} Stat;
+
 int cpuid();
 struct proc *curr_proc();
 void exit(int);
